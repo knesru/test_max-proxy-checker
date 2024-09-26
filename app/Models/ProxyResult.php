@@ -4,8 +4,14 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ProxyResult extends Model
 {
     use HasFactory;
+
+    public function proxy(): BelongsTo
+    {
+        return $this->belongsTo(ProxyServer::class);
+    }
 }

@@ -7,6 +7,10 @@
 </head>
 <body>
 <div class="content-wrapper">
+    <div class="mainMenu">
+        <a href="/">main</a>
+        <a href="/history">history</a>
+    </div>
 @yield('content', 'Default content')
 </div>
 </body>

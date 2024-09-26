@@ -11,9 +11,9 @@ return [
     ],
     'protocols'=>[
         CURLPROXY_HTTP,
-        CURLPROXY_HTTPS,
-        CURLPROXY_SOCKS4,
-        CURLPROXY_SOCKS4A,
+//        CURLPROXY_HTTPS,
+//        CURLPROXY_SOCKS4,
+//        CURLPROXY_SOCKS4A,
         CURLPROXY_SOCKS5,
     ],
     'batch_size'=>10

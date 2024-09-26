@@ -15,4 +15,5 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-Route::match(['get','post'],'/', [ProxyCheckerController::class, 'index']);
+Route::match(['get','post'],'/', [ProxyCheckerController::class, 'index'])->name('main');
+Route::get('/history', [ProxyCheckerController::class, 'history']);

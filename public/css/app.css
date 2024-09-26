@@ -35,3 +35,12 @@ html, body{
 .form-footer {
     text-align: center;
 }
+
+table{
+    border-spacing: 0;
+}
+
+table td, table th{
+    border: 1px solid #ccc;
+    padding: 3px 5px;
+}

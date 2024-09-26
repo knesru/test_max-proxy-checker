@@ -6,6 +6,7 @@ use App\Interfaces\BatchLinkCkecker;
 use App\Interfaces\GeoIpInterface;
 use App\Models\ProxyResult;
 use App\Models\ProxyServer;
+use MongoDB\Driver\Session;
 
 class CheckProxiesService implements BatchLinkCkecker
 {
@@ -29,39 +30,51 @@ class CheckProxiesService implements BatchLinkCkecker
 
 
         $batch = $this->checkBatchGenerator($proxies, self::config('url_checks'), self::config('protocols'));
+
         do {
             $multiHandle = curl_multi_init();
+            $results = [];
+            $handles = [];
             for ($threadN = 0; $threadN < self::config('batch_size'); $threadN++) {
-                $handle = $batch->current();
-                if(!$handle){
+                $resultModel = $batch->current();
+                $results[$threadN] = $resultModel;
+                $handles[$threadN] = $resultModel->handle;
+                if(!$resultModel->handle){
                     break;
                 }
-                curl_multi_add_handle($multiHandle, $handle);
-//                $fullInfo[$proxies [$threadN]] = ['status' => 'pending'];
+                curl_multi_add_handle($multiHandle, $resultModel->handle);
                 $batch->next();
             }
 
 
-            $fullInfo301 = [];
-
             do {
-                while (($execrun = curl_multi_exec($multiHandle, $running)) == CURLM_CALL_MULTI_PERFORM) ;
+                while (($execrun = curl_multi_exec($multiHandle, $running)) == CURLM_CALL_MULTI_PERFORM)
                 if ($execrun != CURLM_OK) break;
                 while ($done = curl_multi_info_read($multiHandle)) {
                     $info = curl_getinfo($done ['handle']);
-//                    $key = array_search($done['handle'], $c);
+                    $info['done'] = $done;
+                    $key = array_search($done['handle'], $handles);
+                    $resultModel = $results[$key];
+                    $resultModel->speed = $info['speed_download'];
+                    if($resultModel->speed == 0) {
+                        $resultModel->timeout = self::config('timeouts.total');
+                    }
+                    if($resultModel->proxy->real_ip!==$info['primary_ip']) {
+                        $resultModel->proxy->real_ip = $info['primary_ip'];
+                        $resultModel->proxy->save();
+                    }
                     $fullInfo[] = $info;
-//                    $fullInfo[$proxies [$key]]['status'] = 'ok';
-//                    if ($info ['http_code'] == 301) {
-//                        $fullInfo301[] = trim($proxies [$key]) . "\r\n";
-//                        $fullInfo[$proxies [$key]]['status'] = 301;
-
-//                    }
+                    if($info ['http_code'] == 200){
+                        $resultModel->status = 'online';
+                    }else{
+                        $resultModel->status = 'offline';
+                    }
+                    $resultModel->save();
                     curl_multi_remove_handle($multiHandle, $done ['handle']);
                 }
             } while ($running);
             curl_multi_close($multiHandle);
-        } while ($handle);
+        } while ($resultModel);
 
         foreach ($fullInfo as $key=>$proxyInfo){
 //            if($fullInfo[$key]['status']=='pending') {
@@ -77,9 +90,6 @@ class CheckProxiesService implements BatchLinkCkecker
         //Explode by newline
         $lines = explode(self::LINES_SEPARATOR, $linksString);
         return $lines;
-//        return array_map(function($line){
-//            return explode(self::ADDRESS_SEPARATOR, $line);
-//        }, $lines);
     }
 
     private function checkBatchGenerator($addresses, $urls, $proxyTypes){
@@ -101,8 +111,9 @@ class CheckProxiesService implements BatchLinkCkecker
                         $existingProxy->save();
                     }
                     $result = new ProxyResult();
-                    $result->proxyId = $existingProxy->id;
+                    $result->proxy_server_id = $existingProxy->id;
                     $result->status = 'pending';
+                    $result->timeout = self::config('timeouts.total');
                     $result->protocol = match ($proxyType) {
                         CURLPROXY_HTTP => 'HTTP',
                         CURLPROXY_HTTP_1_0 => 'HTTP1.0',
@@ -113,17 +124,19 @@ class CheckProxiesService implements BatchLinkCkecker
                         default=> 'forget to add protocol: '.$proxyType
                     };
                     $result->url = $url;
+                    $result->user_uuid = \Illuminate\Support\Facades\Session::get('user_uuid');
                     $result->save();
 
                     $handler = curl_init();
                     curl_setopt ($handler, CURLOPT_URL, $url);
                     curl_setopt ($handler, CURLOPT_HEADER, 0);
                     curl_setopt ($handler, CURLOPT_RETURNTRANSFER, 1);
-                    curl_setopt ($handler, CURLOPT_CONNECTTIMEOUT, config('proxy_service.timeouts.connection'));
-                    curl_setopt ($handler, CURLOPT_TIMEOUT, config('proxy_service.timeouts.total'));
+                    curl_setopt ($handler, CURLOPT_CONNECTTIMEOUT, self::config('timeouts.connection'));
+                    curl_setopt ($handler, CURLOPT_TIMEOUT, self::config('timeouts.total'));
                     curl_setopt ($handler, CURLOPT_PROXY, trim ($address));
                     curl_setopt ($handler, CURLOPT_PROXYTYPE, $proxyType);
-                    yield $handler;
+                    $result->handler = $handler;
+                    yield $result;
                 }
             }
         }

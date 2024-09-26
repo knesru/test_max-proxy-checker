@@ -14,11 +14,15 @@ return new class extends Migration
         Schema::table('proxy_servers', function (Blueprint $table) {
             $table->string('city')->nullable();
             $table->string('country')->nullable();
+            $table->string('realip')->nullable();
         });
 
         Schema::table('proxy_results', function (Blueprint $table) {
             $table->string('protocol');
             $table->string('url')->nullable();
+            $table->string('speed')->nullable();
+            $table->string('timeout')->nullable();
+            $table->string('user_uuid');
         });
     }
 

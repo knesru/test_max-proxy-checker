@@ -17,8 +17,8 @@ return new class extends Migration
             $table->enum('status',['online','offline','pending'])->default('pending');
             $table->index('status');
             $table->integer('responseTime')->nullable();
-            $table->integer('proxyId');
-            $table->index('proxyId');
+            $table->integer('proxy_server_id');
+            $table->index('proxy_server_id');
         });
     }
 
